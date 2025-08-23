@@ -1,0 +1,319 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buchungssatz Trainer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    button {
+      margin: 0px 10px !important
+    }
+    .draggable {
+      user-select: none;
+    }
+ 
+    #soll-drop, #haben-drop {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-height: 60px;
+    }
+    .drop-highlight {
+      border: 2px solid #3b82f6;
+      background-color: #ebf8ff;
+    }
+
+  </style>
+
+</head>
+<body class="bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen flex flex-col items-center p-4">
+
+  <div class="w-full max-w-3xl bg-white rounded-2xl shadow-lg p-4 mb-4">
+    <h2 class="text-lg font-semibold text-gray-700 mb-2">Geschäftsvorfall:</h2>
+    <p class="text-gray-600" id="geschaeftsvorfall">Wir kaufen Waren im Wert von 5.000 € auf Ziel (Rechnung) ein.</p>
+  </div>
+
+  <div class="w-full max-w-3xl bg-gray-50 rounded-2xl shadow-inner border-2 border-dashed border-gray-300 p-6 mb-4 flex flex-col gap-4">
+    <h3 class="text-gray-500 text-center mb-2">Ziehe die passenden Konten in Soll und Haben</h3>
+    <div class="flex flex-col md:flex-row justify-between gap-4">
+      <!-- Soll Konten -->
+      <div class="dropzone flex-1 bg-white rounded-xl shadow p-4 min-h-[120px]" id="soll-drop">
+        <h4 class="font-semibold text-gray-600 mb-2">Soll</h4>
+      </div>
+
+      <!-- Haben Konten -->
+      <div class="dropzone flex-1 bg-white rounded-xl shadow p-4 min-h-[120px]" id="haben-drop">
+        <h4 class="font-semibold text-gray-600 mb-2">Haben</h4>
+      </div>
+    </div>
+  </div>
+
+  <div class="w-full max-w-3xl flex justify-center mb-4">
+    <button id="check-btn"  class="bg-blue-600 text-white font-semibold px-6 py-2 rounded-lg shadow hover:bg-blue-700">Check</button>
+    <button id="weiter-btn" class="bg-green-600 text-white font-semibold px-6 py-2 rounded-lg shadow hover:bg-green-700">Weiter</button>
+  </div>
+
+  <div class="w-full max-w-3xl bg-white rounded-2xl shadow p-4 hidden" id="solution-box">
+    <h3 class="font-semibold text-gray-700 mb-2">Lösung:</h3>
+    <p id="solution-text" class="text-gray-600"></p>
+  </div>
+
+  <div class="auswahl-box w-full max-w-3xl bg-white rounded-2xl shadow p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+  </div>
+
+  <script>
+    class Aufgabe {
+
+      static aufgaben = [
+          'Barabhebung von der Bank,',
+          'Der Unternehmer zahlt Bargeld auf das Konto ein',
+          'Der Unternehmer kauft Waren auf Ziel.',
+          'Wir kaufen einen PKW für den Betrieb auf Ziel.',
+          'Der Betrieb kauft einen neuen Büro-PC auf Ziel.',
+
+          'Der Betrieb kauft Waren und zahlt bar.',
+          'Wir erhalten eine Rechnung nach einer Reparatur.',
+          'Abschlagszahlung der Stadtwerke per Lastschrift.',
+          'Wir überweisen die Miete an den Vermieter',
+          'Das Unternehmen überweist eine Rate für den geleasten PKW.',
+
+          'Wir überweisen eine Annuität an die Bank (Zinsen & Tilgung)',
+          'Der Unternehmer tankt und erhält eine Quittung.',
+          'Wir verkaufen Waren auf Ziel',
+          'Eine Kunde kauft Waren und zahlt bar.',
+          'Wir verkaufen Waren bar (buche aus Kundensicht!)',
+
+          'Wir tilgen eine Rechnung per Überweisung.',
+          'Wir erhalten eine Zinsgutschrift auf dem Konto.',
+          'Zielverkauf von Waren.',
+          'Barverkauf eines gebrauchten Büro-PC.',
+          'Der PKW wird am Jahresende abgeschrieben.',
+
+          'Barauszahlung der Löhne.',
+          'Der Unternehmer begleicht eine Rechnung in bar.',
+          'Der Betrieb überweist eine Versicherungspolice.',
+          'Die Büroeinrichtung wird abgeschrieben.',
+          'Wir überweisen die fällige Zahllast an das Finanzamt.',
+
+          'Der Betrieb erhält eine Bankgutschrift wegen eines Vorsteuerüberhangs.',
+          'Das Unternehmen erhält eine Bankgutschrift wegen vermieteter Räume,',
+          'Wir erhalten eine Rechnung, nachdem für uns 1000 Flyer gedruckt wurden.',
+          'Der Unternehmer zahlt seine private Miete vom Firmenkonto aus.',
+          'Der Unternehmer legt hundert Euro aus eigenen Mitteln in die Kasse.',
+
+          'Am Jahresende wird das GuV-Konto ins EK abgeschlossen (Gewinn).',
+          'Am Jahresende wird das GuV-Konto ins EK abgeschlossen (Verlust).',
+          'Eine kurzfristige Verbindlichkeit wird in einen Kredit umgewandelt.',
+          'Wir erhalten eine Bankgutschrift nach Darlehensaufnahme.',
+          'Wir kaufen Waren auf Ziel, leisten aber eine Vorauszahlung in bar.',
+
+          'Einkommensteuer-Rückerstattung auf Konto gutgeschrieben.'
+        ]
+      static loesungen = [
+          {'soll': ['Kasse'], 'haben': ['Bank']},
+          {'soll': ['Bank'], 'haben': ['Kasse']},
+          {'soll': ['Warenaufwand', 'Vorsteuer'], 'haben': ['Verbindlichkeiten']},
+          {'soll': ['Fuhrpark', 'Vorsteuer'], 'haben': ['Verbindlichkeiten']},
+          {'soll': ['BGA', 'Vorsteuer'], 'haben': ['Verbindlichkeiten']},
+
+          {'soll': ['Warenaufwand', 'Vorsteuer'], 'haben': ['Kasse']},
+          {'soll': ['Instandaufnahme', 'Vorsteuer'], 'haben': ['Verbindlichkeiten']},
+          {'soll': ['Energieaufwand', 'Vorsteuer'], 'haben': ['Bank']},
+          {'soll': ['Mietaufwand'], 'haben': ['Bank']},
+          {'soll': ['Leasingaufwand', 'Vorsteuer'], 'haben': ['Bank']},
+
+          {'soll': ['Zinsaufwand', 'Darlehen'], 'haben': ['Bank']},
+          {'soll': ['Energieaufwand', 'Vorsteuer'], 'haben': ['Kasse']},
+          {'soll': ['Forderungen'], 'haben': ['Umsatzerlöse', 'Umsatzsteuer']},
+          {'soll': ['Kasse'], 'haben': ['Umsatzerlöse', 'Umsatzsteuer']},
+          {'soll': ['Warenaufwand', 'Vorsteuer'], 'haben': ['Kasse']},
+
+          {'soll': ['Verbindlichkeiten'], 'haben': ['Bank']},
+          {'soll': ['Bank'], 'haben': ['Zinserträge']},
+          {'soll': ['Forderungen'], 'haben': ['Umsatzerlöse', 'Umsatzsteuer']},
+          {'soll': ['Kasse'], 'haben': ['BGA', 'Umsatzsteuer']},
+          {'soll': ['Abschreibung'], 'haben': ['Fuhrpark']},
+
+          {'soll': ['Lohnaufwand'], 'haben': ['Kasse']},
+          {'soll': ['Verbindlichkeiten'], 'haben': ['Kasse']},
+          {'soll': ['Versicherungsaufwand'], 'haben': ['Bank']},
+          {'soll': ['Abschreibung'], 'haben': ['BGA']},
+          {'soll': ['Umsatzsteuer'], 'haben': ['Bank']},
+
+          {'soll': ['Bank'], 'haben': ['Vorsteuer']},
+          {'soll': ['Bank'], 'haben': ['Mieterträge']},
+          {'soll': ['Werbeaufwand', 'Vorsteuer'], 'haben': ['Verbindlichkeiten']},
+          {'soll': ['Privat'], 'haben': ['Bank']},
+          {'soll': ['Kasse'], 'haben': ['privat']},
+
+          {'soll': ['GuV'], 'haben': ['Eigenkapital']},
+          {'soll': ['Eigenkapital'], 'haben': ['GuV']},
+          {'soll': ['Verbindlichkeiten'], 'haben': ['Darlehen']},
+          {'soll': ['Bank'], 'haben': ['Darlehen']},
+          {'soll': ['Warenaufwand', 'Vorsteuer'], 'haben': ['Verbindlichkeiten', 'Kasse']},
+
+          {'soll': ['Bank'], 'haben': ['Privat']}
+    ]
+      static konten = [
+  'Kasse',
+  'Bank',
+  'Warenaufwand',
+  'Vorsteuer',
+  'Verbindlichkeiten',
+  'Fuhrpark',
+  'BGA',
+  'Instandaufnahme',
+  'Energieaufwand',
+  'Mietaufwand',
+  'Leasingaufwand',
+  'Zinsaufwand',
+  'Darlehen',
+  'Forderungen',
+  'Umsatzerlöse',
+  'Umsatzsteuer',
+  'Zinserträge',
+  'Abschreibung',
+  'Lohnaufwand',
+  'Versicherungen',
+  'Mieterträge',
+  'Werbeaufwand',
+  'Privat',
+  'GuV',
+  'Eigenkapital',
+].sort()
+
+      constructor(i) {
+        this.id         = i
+        this.aufgabe    = Aufgabe.aufgaben[i]
+        this.loesung    = Aufgabe.loesungen[i]
+      }
+    }
+
+    const dropzones = document.querySelectorAll('.dropzone')
+    const auswahlBox = document.querySelector('.auswahl-box')
+    const checkBtn = document.getElementById('check-btn')
+    const weiterBtn = document.getElementById('weiter-btn')
+    const solutionBox = document.getElementById('solution-box')
+    let geschaeftsvorfall = document.getElementById('geschaeftsvorfall')
+    let aufgaben = []
+    let draggedItem = null
+    let currAufgabe = 0
+    let maxAufgaben = 10
+    let correct = false
+    let goodSound = new Audio()
+    let badSound = new Audio()
+
+    goodSound.src = 'good.wav'
+    badSound.src = 'bad.wav'
+    
+    for (let i = 0; i < Aufgabe.aufgaben.length; i++)
+      aufgaben.push(new Aufgabe(i))
+    aufgaben.sort((a, b) => Math.random() - Math.random())
+    aufgaben = aufgaben.splice(0, 10)
+  
+  for (let i = 0; i < Aufgabe.konten.length; i++) {
+    let elem = document.createElement('div');
+    elem.className = 'draggable bg-blue-100 text-blue-800 font-semibold rounded-lg p-2 text-center cursor-move shadow'
+    elem.draggable = true
+    elem.textContent = Aufgabe.konten[i]
+    auswahlBox.appendChild(elem)
+  }
+  const draggables = document.querySelectorAll('.draggable')
+  geschaeftsvorfall.textContent = aufgaben[currAufgabe].aufgabe
+
+  function checkIfCorrect() {
+    for (let i = 0; i < 2; i++) {
+      let a = []
+      for (let part of dropzones[i].children)
+        if (!['Soll', 'Haben'].includes(part.textContent))
+          a.push(part.textContent)
+      let b = [aufgaben[currAufgabe].loesung.soll, aufgaben[currAufgabe].loesung.haben][i]
+      if (!(a.length === b.length && a.every(x => b.includes(x))))
+        return false
+    }
+    return true
+  }
+
+    draggables.forEach(item => {
+      item.addEventListener('dragstart', () => {
+        draggedItem = item
+        setTimeout(() => item.style.display = 'none', 0)
+      });
+
+      item.addEventListener('dragend', () => {
+        setTimeout(() => {
+          draggedItem.style.display = 'block'
+          draggedItem = null
+        }, 0)
+      })
+    })
+
+    dropzones.forEach(zone => {
+      zone.addEventListener('dragover', e => {
+        e.preventDefault()
+        zone.classList.add('drop-highlight')
+      })
+
+      zone.addEventListener('dragleave', () => {
+        zone.classList.remove('drop-highlight')
+      })
+
+      zone.addEventListener('drop', () => {
+        zone.classList.remove('drop-highlight')
+        if (draggedItem) {
+          zone.appendChild(draggedItem)
+        }
+      })
+    })
+
+    checkBtn.addEventListener('click', () => {
+      correct = checkIfCorrect() 
+      if (correct) 
+        goodSound.play()
+      else 
+        badSound.play()
+
+      let aufg = aufgaben[currAufgabe]
+      solutionBox.innerHTML = `Deine Lösung ist ${correct ? 'richtig' : 'falsch'}:<br>`
+      solutionBox.innerHTML += 'Soll: '
+      for (let text of aufg.loesung.soll)
+        solutionBox.innerHTML += text + ' '
+      solutionBox.innerHTML += '<br>'
+
+      solutionBox.innerHTML += 'Haben: '
+      for (let text of aufg.loesung.haben)
+        solutionBox.innerHTML += text + ' '
+      solutionBox.classList.remove('hidden')
+    })
+
+    weiterBtn.addEventListener('click', () => {
+      location.reload()
+    })
+
+    draggables.forEach(item => {
+      item.addEventListener('touchstart', e => {
+        draggedItem = item
+      })
+
+      item.addEventListener('touchend', e => {
+        draggedItem = null
+      })
+    })
+
+    dropzones.forEach(zone => {
+      zone.addEventListener('touchmove', e => {
+        e.preventDefault()
+      })
+
+      zone.addEventListener('touchend', e => {
+        if (draggedItem) {
+          zone.appendChild(draggedItem)
+          draggedItem = null
+        }
+      })
+    })
+  </script>
+</body>
+</html>
