@@ -138,7 +138,7 @@
 
           {'soll': ['Lohnaufwand'], 'haben': ['Kasse']},
           {'soll': ['Verbindlichkeiten'], 'haben': ['Kasse']},
-          {'soll': ['Versicherungen'], 'haben': ['Bank']},
+          {'soll': ['Versicherungsaufwand'], 'haben': ['Bank']},
           {'soll': ['Abschreibung'], 'haben': ['BGA']},
           {'soll': ['Umsatzsteuer'], 'haben': ['Bank']},
 
@@ -192,128 +192,173 @@
     }
 
     const dropzones = document.querySelectorAll('.dropzone')
-    const auswahlBox = document.querySelector('.auswahl-box')
-    const checkBtn = document.getElementById('check-btn')
-    const weiterBtn = document.getElementById('weiter-btn')
-    const solutionBox = document.getElementById('solution-box')
-    let geschaeftsvorfall = document.getElementById('geschaeftsvorfall')
-    let aufgaben = []
-    let draggedItem = null
-    let currAufgabe = 0
-    let maxAufgaben = 10
-    let correct = false
-    let goodSound = new Audio()
-    let badSound = new Audio()
+const auswahlBox = document.querySelector('.auswahl-box')
+const checkBtn = document.getElementById('check-btn')
+const weiterBtn = document.getElementById('weiter-btn')
+const solutionBox = document.getElementById('solution-box')
+let geschaeftsvorfall = document.getElementById('geschaeftsvorfall')
+let aufgaben = []
+let draggedItem = null
+let currAufgabe = 0
+let maxAufgaben = 10
+let correct = false
+let goodSound = new Audio()
+let badSound = new Audio()
 
-    goodSound.src = 'good.wav'
-    badSound.src = 'bad.wav'
-    
-    for (let i = 0; i < Aufgabe.aufgaben.length; i++)
-      aufgaben.push(new Aufgabe(i))
-    aufgaben.sort((a, b) => Math.random() - Math.random())
-    aufgaben = aufgaben.splice(0, 10)
-  
-  for (let i = 0; i < Aufgabe.konten.length; i++) {
-    let elem = document.createElement('div');
-    elem.className = 'draggable bg-blue-100 text-blue-800 font-semibold rounded-lg p-2 text-center cursor-move shadow'
-    elem.draggable = true
-    elem.textContent = Aufgabe.konten[i]
-    auswahlBox.appendChild(elem)
+goodSound.src = 'good.wav'
+badSound.src = 'bad.wav'
+
+// Aufgaben zufällig auswählen
+for (let i = 0; i < Aufgabe.aufgaben.length; i++)
+  aufgaben.push(new Aufgabe(i))
+aufgaben.sort((a, b) => Math.random() - Math.random())
+aufgaben = aufgaben.splice(0, 10)
+
+// Konten-Buttons erzeugen
+for (let i = 0; i < Aufgabe.konten.length; i++) {
+  let elem = document.createElement('div');
+  elem.className = 'draggable bg-blue-100 text-blue-800 font-semibold rounded-lg p-2 text-center cursor-move shadow'
+  elem.draggable = true
+  elem.textContent = Aufgabe.konten[i]
+  auswahlBox.appendChild(elem)
+}
+
+const draggables = document.querySelectorAll('.draggable')
+geschaeftsvorfall.textContent = aufgaben[currAufgabe].aufgabe
+
+// --- Funktion: Lösung prüfen ---
+function checkIfCorrect() {
+  for (let i = 0; i < 2; i++) {
+    let a = []
+    for (let part of dropzones[i].children)
+      if (!['Soll', 'Haben'].includes(part.textContent))
+        a.push(part.textContent)
+    let b = [aufgaben[currAufgabe].loesung.soll, aufgaben[currAufgabe].loesung.haben][i]
+    if (!(a.length === b.length && a.every(x => b.includes(x))))
+      return false
   }
-  const draggables = document.querySelectorAll('.draggable')
-  geschaeftsvorfall.textContent = aufgaben[currAufgabe].aufgabe
+  return true
+}
 
-  function checkIfCorrect() {
-    for (let i = 0; i < 2; i++) {
-      let a = []
-      for (let part of dropzones[i].children)
-        if (!['Soll', 'Haben'].includes(part.textContent))
-          a.push(part.textContent)
-      let b = [aufgaben[currAufgabe].loesung.soll, aufgaben[currAufgabe].loesung.haben][i]
-      if (!(a.length === b.length && a.every(x => b.includes(x))))
-        return false
+// --- PC Drag & Drop Events ---
+draggables.forEach(item => {
+  item.addEventListener('dragstart', () => {
+    draggedItem = item
+    setTimeout(() => item.style.display = 'none', 0)
+  })
+
+  item.addEventListener('dragend', () => {
+    setTimeout(() => {
+      draggedItem.style.display = 'block'
+      draggedItem = null
+    }, 0)
+  })
+})
+
+// Dropzones: Items aufnehmen oder zurückziehen
+dropzones.forEach(zone => {
+  zone.addEventListener('dragover', e => {
+    e.preventDefault()
+    zone.classList.add('drop-highlight')
+  })
+
+  zone.addEventListener('dragleave', () => {
+    zone.classList.remove('drop-highlight')
+  })
+
+  zone.addEventListener('drop', () => {
+    zone.classList.remove('drop-highlight')
+    if (draggedItem) {
+      zone.appendChild(draggedItem)
     }
-    return true
+  })
+})
+
+// Auswahlbox erlaubt Rückgabe von Items
+auswahlBox.addEventListener('dragover', e => {
+  e.preventDefault()
+})
+auswahlBox.addEventListener('drop', () => {
+  if (draggedItem) {
+    auswahlBox.appendChild(draggedItem)
   }
+})
 
-    draggables.forEach(item => {
-      item.addEventListener('dragstart', () => {
-        draggedItem = item
-        setTimeout(() => item.style.display = 'none', 0)
-      });
+// --- Mobile Touch-Events ---
+draggables.forEach(item => {
+  item.addEventListener('touchstart', e => {
+    draggedItem = item
+    draggedItem.style.opacity = '0.5'
+    e.preventDefault()
+  })
 
-      item.addEventListener('dragend', () => {
-        setTimeout(() => {
-          draggedItem.style.display = 'block'
-          draggedItem = null
-        }, 0)
-      })
-    })
+  item.addEventListener('touchend', e => {
+    if (!draggedItem) return
+    draggedItem.style.opacity = '1'
 
+    const touch = e.changedTouches[0]
+    const target = document.elementFromPoint(touch.clientX, touch.clientY)
+
+    // Prüfen: Dropzone
+    let dropped = false
     dropzones.forEach(zone => {
-      zone.addEventListener('dragover', e => {
-        e.preventDefault()
-        zone.classList.add('drop-highlight')
-      })
-
-      zone.addEventListener('dragleave', () => {
-        zone.classList.remove('drop-highlight')
-      })
-
-      zone.addEventListener('drop', () => {
-        zone.classList.remove('drop-highlight')
-        if (draggedItem) {
-          zone.appendChild(draggedItem)
-        }
-      })
+      if (zone.contains(target) || zone === target) {
+        zone.appendChild(draggedItem)
+        dropped = true
+      }
     })
 
-    checkBtn.addEventListener('click', () => {
-      correct = checkIfCorrect() 
-      if (correct) 
-        goodSound.play()
-      else 
-        badSound.play()
+    // Prüfen: Auswahlbox
+    if (!dropped && (auswahlBox.contains(target) || auswahlBox === target)) {
+      auswahlBox.appendChild(draggedItem)
+      dropped = true
+    }
 
-      let aufg = aufgaben[currAufgabe]
-      solutionBox.innerHTML = `Deine Lösung ist ${correct ? 'richtig' : 'falsch'}:<br>`
-      solutionBox.innerHTML += 'Soll: '
-      for (let text of aufg.loesung.soll)
-        solutionBox.innerHTML += text + ' '
-      solutionBox.innerHTML += '<br>'
+    // Fallback: zurück in Auswahlbox
+    if (!dropped) {
+      auswahlBox.appendChild(draggedItem)
+    }
 
-      solutionBox.innerHTML += 'Haben: '
-      for (let text of aufg.loesung.haben)
-        solutionBox.innerHTML += text + ' '
-      solutionBox.classList.remove('hidden')
-    })
+    draggedItem = null
+  })
+})
 
-    weiterBtn.addEventListener('click', () => {
-      location.reload()
-    })
+dropzones.forEach(zone => {
+  zone.addEventListener('touchmove', e => {
+    e.preventDefault()
+  })
+})
+auswahlBox.addEventListener('touchmove', e => e.preventDefault())
 
-    draggables.forEach(item => {
-      item.addEventListener('touchstart', e => {
-        draggedItem = item
-      })
 
-      item.addEventListener('touchend', e => {
-        draggedItem = null
-      })
-    })
 
-    dropzones.forEach(zone => {
-      zone.addEventListener('touchmove', e => {
-        e.preventDefault()
-      })
+// --- Button Check ---
+checkBtn.addEventListener('click', () => {
+  correct = checkIfCorrect() 
+  if (correct) 
+    goodSound.play()
+  else 
+    badSound.play()
 
-      zone.addEventListener('touchend', e => {
-        if (draggedItem) {
-          zone.appendChild(draggedItem)
-          draggedItem = null
-        }
-      })
-    })
+  let aufg = aufgaben[currAufgabe]
+  solutionBox.innerHTML = `Deine Lösung ist ${correct ? 'richtig' : 'falsch'}:<br>`
+  solutionBox.innerHTML += 'Soll: '
+  for (let text of aufg.loesung.soll)
+    solutionBox.innerHTML += text + ' '
+  solutionBox.innerHTML += '<br>'
+
+  solutionBox.innerHTML += 'Haben: '
+  for (let text of aufg.loesung.haben)
+    solutionBox.innerHTML += text + ' '
+  solutionBox.classList.remove('hidden')
+})
+
+// --- Button Weiter ---
+weiterBtn.addEventListener('click', () => {
+  location.reload()
+})
+
+
   </script>
 </body>
 </html>
